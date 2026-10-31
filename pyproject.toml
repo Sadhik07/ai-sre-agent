@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
-mcp = ["mcp>=2.0"]
+mcp = ["mcp>=2.3.0"]
 k8s = ["kubernetes>=30.0"]
 all = ["sre-agent[llm,mcp,k8s]"]
 dev = ["pytest>=8", "ruff>=0.11", "sre-agent[llm,mcp]"]
