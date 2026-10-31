@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-agent
+  labels:
+    app: sre-agent
+  annotations:
+    checkov.io/skip1: CKV_K8S_38=The agent reads pods, events and ReplicaSets from the Kubernetes API, so it needs its (read-only) token
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-agent
+  template:
+    metadata:
+      labels:
+        app: sre-agent
+    spec:
+      serviceAccountName: sre-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: sre-agent
+          args: ["serve", "--port", "8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SRE_AGENT_INVESTIGATOR
+              value: rules # set to "llm" once the anthropic-api-key secret exists
+            - name: SRE_AGENT_READ_ONLY
+              value: "true"
+            - name: SRE_AGENT_NAMESPACES
+              value: orders
+            - name: PROMETHEUS_URL
+              value: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+            - name: LOKI_URL
+              value: http://loki-gateway.observability.svc
+            # Secrets are mounted as files, never exposed as environment variables
+            - name: ANTHROPIC_API_KEY_FILE
+              value: /secrets/anthropic-api-key
+            - name: WEBHOOK_TOKEN_FILE
+              value: /secrets/webhook-token
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: audit
+              mountPath: /var/lib/sre-agent
+            - name: tmp
+              mountPath: /tmp
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+      volumes:
+        # Swap for a PVC (or ship audit.jsonl to S3 with object lock) to keep the audit trail
+        - name: audit
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: sre-agent # keys: anthropic-api-key, webhook-token (both optional)
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sre-agent
+  labels:
+    app: sre-agent
+spec:
+  selector:
+    app: sre-agent
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

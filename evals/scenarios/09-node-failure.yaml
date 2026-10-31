@@ -1,0 +1,32 @@
+id: node-failure
+description: >-
+  A node becomes NotReady; API pods on it are evicted, and the remaining pods
+  briefly return errors while capacity is replaced.
+alert:
+  name: ApiErrorBudgetFastBurn
+  service: api
+  namespace: orders
+  severity: page
+  starts_at: "2026-06-30T07:10:00Z"
+  summary: API is burning its 30-day error budget 14.4x too fast
+now_offset_min: 5
+expected:
+  root_cause: node_failure
+  required_evidence_tools: [get_events]
+  red_herrings: [dependency_failure]
+telemetry:
+  deployments: []
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.09, change_at: -3 }
+    p95_latency:
+      api: { baseline: 0.12, after: 0.4, change_at: -3 }
+  logs:
+    - { service: api, at_min: -2, level: error, msg: "upstream connect error or disconnect/reset before headers. reset reason: connection termination", repeat: 12 }
+  events:
+    - { at_min: -4, type: Normal, reason: NodeNotReady, object: Node/ip-10-0-2-12, message: "Node ip-10-0-2-12 status is now: NodeNotReady" }
+    - { at_min: -3, type: Warning, reason: TaintManagerEviction, object: Pod/api-5d9f-a2, message: "Marking for deletion Pod orders/api-5d9f-a2" }
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }
+    - { name: api-5d9f-a2, service: api, phase: Unknown, ready: false, restarts: 0, node: ip-10-0-2-12, version: sha-9f2c41 }
+    - { name: api-5d9f-a3, service: api, phase: Pending, ready: false, restarts: 0, version: sha-9f2c41 }

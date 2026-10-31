@@ -1,0 +1,31 @@
+id: poison-message
+description: >-
+  One malformed order keeps failing validation, is redelivered five times and
+  lands in the DLQ; each new copy repeats the cycle.
+alert:
+  name: WorkerHighFailureRate
+  service: worker
+  namespace: orders
+  severity: ticket
+  starts_at: "2026-06-30T20:00:00Z"
+  summary: More than 5% of orders fail processing (check the DLQ)
+now_offset_min: 5
+expected:
+  root_cause: poison_message
+  required_evidence_tools: [query_metric, search_logs]
+  red_herrings: [dependency_failure, bad_deploy]
+telemetry:
+  deployments: []
+  metrics:
+    dlq_depth:
+      worker: [[-40, 0], [-30, 0], [-20, 2], [-10, 6], [-5, 9], [0, 12], [3, 14]]
+    queue_age:
+      worker: { baseline: 3, after: 9, change_at: -20 }
+    error_rate:
+      worker: []
+  logs:
+    - { service: worker, at_min: -15, level: error, msg: "processing failed: ValidationError: invalid payload for order 1f3a9c2e: quantity must be > 0", repeat: 40 }
+    - { service: worker, at_min: -12, level: error, msg: "poll failed: connection reset by peer", repeat: 3 }
+  events: []
+  pods:
+    - { name: worker-6b7c-x1, service: worker, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-21, version: sha-55e0aa }

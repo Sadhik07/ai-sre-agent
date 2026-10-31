@@ -1,0 +1,37 @@
+id: cpu-saturation
+description: >-
+  A marketing campaign triples traffic; the API is CPU-throttled and slow but
+  still mostly succeeds. Red herring: an API deploy 100 minutes earlier.
+alert:
+  name: ApiLatencyHigh
+  service: api
+  namespace: orders
+  severity: page
+  starts_at: "2026-06-30T18:00:00Z"
+  summary: p95 latency above 1s for 10 minutes
+now_offset_min: 5
+expected:
+  root_cause: resource_saturation
+  required_evidence_tools: [query_metric]
+  red_herrings: [bad_deploy]
+telemetry:
+  deployments:
+    - { service: api, version: sha-9f2c41, previous_version: sha-3b81d0, at_min: -100, by: github-actions }
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.006, change_at: -15 }
+    p95_latency:
+      api: { baseline: 0.12, after: 1.4, change_at: -15 }
+    request_rate:
+      api: { baseline: 180, after: 560, change_at: -18 }
+    cpu_throttling:
+      api: { baseline: 0.05, after: 0.78, change_at: -16 }
+    memory_utilization:
+      api: { baseline: 0.42, after: 0.5, change_at: -16 }
+  logs:
+    - { service: api, at_min: -5, level: warning, msg: "slow request: POST /api/orders took 1830ms", repeat: 25 }
+  events:
+    - { at_min: -12, type: Normal, reason: SuccessfulRescale, object: HorizontalPodAutoscaler/api, message: "New size: 12; reason: cpu resource utilization above target" }
+    - { at_min: -6, type: Warning, reason: FailedGetResourceMetric, object: HorizontalPodAutoscaler/api, message: "api: max replicas reached (12)" }
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }

@@ -1,0 +1,14 @@
+# Read-only by default. To let the agent propose AND (with approval) execute
+# rollbacks, add write-role.yaml and set SRE_AGENT_READ_ONLY=false.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sre-agent
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - networkpolicy.yaml
+images:
+  - name: sre-agent
+    newName: ghcr.io/sadhik07/ai-sre-agent
+    newTag: "0.1.0"

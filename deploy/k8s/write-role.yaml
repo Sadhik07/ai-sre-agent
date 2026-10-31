@@ -1,0 +1,32 @@
+# OPTIONAL. Grants the minimum needed for the three write tools, in ONE
+# namespace only. The agent still refuses writes unless SRE_AGENT_READ_ONLY=false,
+# and every write needs a human approval.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sre-agent-remediate
+  namespace: orders
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts/status"]
+    verbs: ["patch"] # abort a canary
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch"] # rolling restart
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-agent-remediate
+  namespace: orders
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sre-agent-remediate
+subjects:
+  - kind: ServiceAccount
+    name: sre-agent
+    namespace: sre-agent

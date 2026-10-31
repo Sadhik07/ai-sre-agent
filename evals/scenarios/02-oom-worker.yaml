@@ -1,0 +1,38 @@
+id: oom-worker
+description: >-
+  The worker leaks memory under a larger-than-usual batch and gets OOMKilled
+  repeatedly. Red herring: the API was deployed 15 minutes earlier.
+alert:
+  name: WorkerNotPolling
+  service: worker
+  namespace: orders
+  severity: page
+  starts_at: "2026-06-30T14:00:00Z"
+  summary: No worker has polled the queue for over 2 minutes
+now_offset_min: 5
+expected:
+  root_cause: oom_kill
+  required_evidence_tools: [get_pods]
+  red_herrings: [bad_deploy]
+telemetry:
+  deployments:
+    - { service: api, version: sha-1c2d3e, previous_version: sha-0b1c2d, at_min: -15, by: github-actions }
+  metrics:
+    memory_utilization:
+      worker: [[-40, 0.55], [-30, 0.68], [-20, 0.81], [-12, 0.93], [-8, 0.99], [-6, 0.35], [-4, 0.97], [-2, 0.99], [0, 0.4], [2, 0.98]]
+    restarts:
+      worker: { baseline: 0, after: 6, change_at: -8 }
+    queue_age:
+      worker: { baseline: 4, after: 380, change_at: -5 }
+    cpu_throttling:
+      worker: { baseline: 0.01, after: 0.02, change_at: -8 }
+    error_rate:
+      worker: []
+  logs:
+    - { service: worker, at_min: -3, level: error, msg: "poll failed: worker restarting", repeat: 4 }
+  events:
+    - { at_min: -8, type: Warning, reason: OOMKilling, object: Pod/worker-6b7c-x1, message: "Memory cgroup out of memory: Killed process 1 (python) in worker-6b7c-x1" }
+    - { at_min: -4, type: Warning, reason: BackOff, object: Pod/worker-6b7c-x1, message: "Back-off restarting failed container worker in pod worker-6b7c-x1" }
+  pods:
+    - { name: worker-6b7c-x1, service: worker, phase: Running, ready: false, restarts: 6, last_termination_reason: OOMKilled, waiting_reason: CrashLoopBackOff, node: ip-10-0-1-21, version: sha-55e0aa }
+    - { name: worker-6b7c-x2, service: worker, phase: Running, ready: false, restarts: 5, last_termination_reason: OOMKilled, node: ip-10-0-2-22, version: sha-55e0aa }

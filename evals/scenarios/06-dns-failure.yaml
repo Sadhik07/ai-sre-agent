@@ -1,0 +1,30 @@
+id: dns-failure
+description: >-
+  CoreDNS is overloaded; lookups for the SQS endpoint fail intermittently.
+  The errors also look like generic connection failures (red herring).
+alert:
+  name: ApiErrorBudgetSlowBurn
+  service: api
+  namespace: orders
+  severity: ticket
+  starts_at: "2026-06-30T13:00:00Z"
+  summary: API is burning its 30-day error budget 6x too fast
+now_offset_min: 5
+expected:
+  root_cause: dns_failure
+  required_evidence_tools: [search_logs]
+  red_herrings: [dependency_failure]
+telemetry:
+  deployments: []
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.045, change_at: -12 }
+    p95_latency:
+      api: { baseline: 0.12, after: 0.6, change_at: -12 }
+  logs:
+    - { service: api, at_min: -10, level: error, msg: "botocore.exceptions.EndpointConnectionError: Could not connect to the endpoint URL: \"https://sqs.us-east-1.amazonaws.com/\" ([Errno -3] Temporary failure in name resolution)", repeat: 70 }
+    - { service: api, at_min: -4, level: error, msg: "dial tcp: lookup sqs.us-east-1.amazonaws.com on 172.20.0.10:53: no such host", repeat: 35 }
+  events:
+    - { at_min: -20, type: Warning, reason: Unhealthy, object: Pod/coredns-7db6-k2, message: "Readiness probe failed: HTTP probe failed with statuscode: 503" }
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }

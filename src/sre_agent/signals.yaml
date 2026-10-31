@@ -1,0 +1,42 @@
+# Golden-signal catalog: the abstract signal names tools and the LLM use,
+# mapped to PromQL for the live Prometheus backend. Edit the queries to match
+# your metric names; {service} and {namespace} are substituted.
+error_rate:
+  unit: ratio
+  description: Share of HTTP requests returning 5xx
+  query: >-
+    sum(rate(http_requests_total{namespace="{namespace}", service="{service}", code=~"5.."}[2m]))
+    / clamp_min(sum(rate(http_requests_total{namespace="{namespace}", service="{service}"}[2m])), 1e-9)
+p95_latency:
+  unit: seconds
+  description: 95th percentile request latency
+  query: >-
+    histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="{namespace}", service="{service}"}[2m])))
+request_rate:
+  unit: req/s
+  description: Requests per second
+  query: sum(rate(http_requests_total{namespace="{namespace}", service="{service}"}[2m]))
+cpu_throttling:
+  unit: ratio
+  description: Share of CPU periods throttled
+  query: >-
+    sum(rate(container_cpu_cfs_throttled_periods_total{namespace="{namespace}", pod=~"{service}-.*"}[5m]))
+    / clamp_min(sum(rate(container_cpu_cfs_periods_total{namespace="{namespace}", pod=~"{service}-.*"}[5m])), 1e-9)
+memory_utilization:
+  unit: ratio
+  description: Working set as a share of the memory limit (max across pods)
+  query: >-
+    max(container_memory_working_set_bytes{namespace="{namespace}", pod=~"{service}-.*", container!=""}
+    / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory", namespace="{namespace}"})
+restarts:
+  unit: count
+  description: Container restarts in the last 15 minutes
+  query: sum(increase(kube_pod_container_status_restarts_total{namespace="{namespace}", pod=~"{service}-.*"}[15m]))
+queue_age:
+  unit: seconds
+  description: Age of the oldest message waiting in the service's queue
+  query: max(worker_oldest_message_age_seconds{namespace="{namespace}"})
+dlq_depth:
+  unit: messages
+  description: Messages in the dead-letter queue (CloudWatch exporter)
+  query: max(aws_sqs_approximate_number_of_messages_visible_maximum{queue_name=~".*{service}.*dlq.*"})

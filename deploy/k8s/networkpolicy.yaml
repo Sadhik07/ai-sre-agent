@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sre-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: sre-agent
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    # Only Alertmanager and Prometheus (monitoring namespace) may call the agent
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 9090
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 80
+        - port: 3100
+    # Kubernetes API and the Anthropic API (TLS). Tighten with an egress gateway or FQDN policy if available.
+    - ports:
+        - port: 443

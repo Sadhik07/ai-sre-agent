@@ -1,0 +1,27 @@
+id: certificate-expiry
+description: >-
+  The payment provider's client certificate expired at midnight; every
+  payment call fails the TLS handshake.
+alert:
+  name: ApiErrorBudgetFastBurn
+  service: api
+  namespace: orders
+  severity: page
+  starts_at: "2026-07-01T00:02:00Z"
+  summary: API is burning its 30-day error budget 14.4x too fast
+now_offset_min: 4
+expected:
+  root_cause: certificate_expiry
+  required_evidence_tools: [search_logs]
+  red_herrings: [dependency_failure, bad_deploy]
+telemetry:
+  deployments: []
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.34, change_at: -2 }
+  logs:
+    - { service: api, at_min: -1.5, level: error, msg: "ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1006) calling payments.example.net", repeat: 210 }
+    - { service: api, at_min: -1, level: error, msg: "payment authorization failed, upstream unavailable", repeat: 40 }
+  events: []
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }

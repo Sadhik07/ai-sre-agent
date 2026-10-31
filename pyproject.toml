@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sre-agent"
+version = "0.1.0"
+description = "AI SRE incident investigation agent with guardrails, MCP tools and an evaluation harness"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Sadhik Shaik" }]
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+mcp = ["mcp>=2.0"]
+k8s = ["kubernetes>=30.0"]
+all = ["sre-agent[llm,mcp,k8s]"]
+dev = ["pytest>=8", "ruff>=0.11", "sre-agent[llm,mcp]"]
+
+[project.scripts]
+sre-agent = "sre_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sre_agent = ["py.typed", "signals.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101"] # asserts are fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]

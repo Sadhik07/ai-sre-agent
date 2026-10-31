@@ -1,0 +1,34 @@
+id: dependency-database-timeouts
+description: >-
+  The database hits its connection limit; the API's queries time out. Red
+  herring: the web frontend was deployed ten minutes before.
+alert:
+  name: ApiErrorBudgetFastBurn
+  service: api
+  namespace: orders
+  severity: page
+  starts_at: "2026-06-30T11:30:00Z"
+  summary: API is burning its 30-day error budget 14.4x too fast
+now_offset_min: 5
+expected:
+  root_cause: dependency_failure
+  required_evidence_tools: [search_logs]
+  red_herrings: [bad_deploy]
+telemetry:
+  deployments:
+    - { service: web, version: sha-c0ffee, previous_version: sha-bead00, at_min: -10, by: github-actions }
+  metrics:
+    error_rate:
+      api: { baseline: 0.003, after: 0.11, change_at: -4 }
+    p95_latency:
+      api: { baseline: 0.13, after: 2.1, change_at: -4 }
+    cpu_throttling:
+      api: { baseline: 0.02, after: 0.03, change_at: -4 }
+  logs:
+    - { service: api, at_min: -3, level: error, msg: "psycopg.OperationalError: connection to server at \"orders-db\" (10.0.40.12), port 5432 failed: timeout expired", repeat: 120 }
+    - { service: api, at_min: -2, level: error, msg: "QueuePool limit of size 10 overflow 5 reached, connection timed out, timeout 30", repeat: 60 }
+    - { service: api, at_min: -1, level: error, msg: "request failed: KeyError 'sku' in validate_order", repeat: 4 }
+  events: []
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }
+    - { name: api-5d9f-a2, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-2-12, version: sha-9f2c41 }

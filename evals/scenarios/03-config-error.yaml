@@ -1,0 +1,32 @@
+id: config-error-missing-secret-key
+description: >-
+  The new API version reads PAYMENT_API_KEY, which was never added to the
+  secret. New pods cannot start. The deploy is the trigger, but the root cause
+  (and the fix) is configuration.
+alert:
+  name: KubeDeploymentReplicasMismatch
+  service: api
+  namespace: orders
+  severity: ticket
+  starts_at: "2026-06-30T09:00:00Z"
+  summary: Rollout api has not matched the expected number of replicas for 5 minutes
+now_offset_min: 6
+expected:
+  root_cause: config_error
+  required_evidence_tools: [get_events]
+  red_herrings: [bad_deploy]
+telemetry:
+  deployments:
+    - { service: api, version: sha-a4b5c6, previous_version: sha-9f2c41, at_min: -5, by: github-actions }
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.004, change_at: -4 }
+    p95_latency:
+      api: { baseline: 0.12, after: 0.14, change_at: -4 }
+  logs: []
+  events:
+    - { at_min: -4.5, type: Warning, reason: Failed, object: Pod/api-8e1f-q1, message: "Error: couldn't find key PAYMENT_API_KEY in Secret orders/api-secrets" }
+    - { at_min: -1, type: Warning, reason: Failed, object: Pod/api-8e1f-q1, message: "Error: couldn't find key PAYMENT_API_KEY in Secret orders/api-secrets" }
+  pods:
+    - { name: api-8e1f-q1, service: api, phase: Pending, ready: false, restarts: 0, waiting_reason: CreateContainerConfigError, node: ip-10-0-1-11, version: sha-a4b5c6 }
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-2-12, version: sha-9f2c41 }

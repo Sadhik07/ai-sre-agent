@@ -1,0 +1,40 @@
+id: bad-deploy-api
+description: >-
+  A new API version throws a TypeError on every order request. Red herrings:
+  the worker was also deployed (different service) and a few upstream timeouts
+  from the previous version are still in the logs.
+alert:
+  name: ApiErrorBudgetFastBurn
+  service: api
+  namespace: orders
+  severity: page
+  starts_at: "2026-06-30T10:00:00Z"
+  summary: API is burning its 30-day error budget 14.4x too fast
+now_offset_min: 5
+expected:
+  root_cause: bad_deploy
+  required_evidence_tools: [recent_deployments]
+  red_herrings: [dependency_failure]
+telemetry:
+  deployments:
+    - { service: worker, version: sha-77aa01, previous_version: sha-6612bc, at_min: -22, by: github-actions }
+    - { service: api, version: sha-9f2c41, previous_version: sha-3b81d0, at_min: -8, by: github-actions }
+  metrics:
+    error_rate:
+      api: { baseline: 0.002, after: 0.18, change_at: -7.5 }
+    p95_latency:
+      api: { baseline: 0.12, after: 0.15, change_at: -7.5 }
+    cpu_throttling:
+      api: { baseline: 0.02, after: 0.04, change_at: -7.5 }
+    memory_utilization:
+      api: { baseline: 0.41, after: 0.43, change_at: -7.5 }
+  logs:
+    - { service: api, at_min: -30, level: error, msg: "upstream timeout calling inventory after 2000ms", version: sha-3b81d0, repeat: 3 }
+    - { service: api, at_min: -6, level: error, msg: "TypeError: 'NoneType' object is not subscriptable in create_order (app/main.py:142)", version: sha-9f2c41, repeat: 140 }
+    - { service: api, at_min: -2, level: error, msg: "TypeError: 'NoneType' object is not subscriptable in create_order (app/main.py:142)", version: sha-9f2c41, repeat: 160 }
+  events:
+    - { at_min: -8, type: Normal, reason: ScalingReplicaSet, object: Rollout/api, message: "Scaled up replica set api-5d9f to 1" }
+  pods:
+    - { name: api-5d9f-a1, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-11, version: sha-9f2c41 }
+    - { name: api-7c41-b2, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-2-12, version: sha-3b81d0 }
+    - { name: api-7c41-c3, service: api, phase: Running, ready: true, restarts: 0, node: ip-10-0-3-13, version: sha-3b81d0 }

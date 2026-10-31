@@ -1,0 +1,27 @@
+id: image-pull-bad-tag
+description: >-
+  A manual edit pointed the web deployment at a tag that was never pushed.
+alert:
+  name: KubePodNotReady
+  service: web
+  namespace: orders
+  severity: ticket
+  starts_at: "2026-06-30T16:00:00Z"
+  summary: Pod web has been in a non-ready state for more than 5 minutes
+now_offset_min: 5
+expected:
+  root_cause: image_pull
+  required_evidence_tools: [get_events]
+  red_herrings: [bad_deploy]
+telemetry:
+  deployments:
+    - { service: web, version: sha-doesnotexist, previous_version: sha-11aa22, at_min: -6, by: kubectl }
+  metrics: {}
+  logs: []
+  events:
+    - { at_min: -5.5, type: Warning, reason: Failed, object: Pod/web-4c4c-z9, message: "Failed to pull image \"123456789012.dkr.ecr.us-east-1.amazonaws.com/orders/web:sha-doesnotexist\": not found" }
+    - { at_min: -5.5, type: Warning, reason: ErrImagePull, object: Pod/web-4c4c-z9, message: "Error: ErrImagePull" }
+    - { at_min: -3, type: Normal, reason: BackOff, object: Pod/web-4c4c-z9, message: "Back-off pulling image" }
+  pods:
+    - { name: web-4c4c-z9, service: web, phase: Pending, ready: false, restarts: 0, waiting_reason: ImagePullBackOff, node: ip-10-0-3-31, version: sha-doesnotexist }
+    - { name: web-2b2b-y8, service: web, phase: Running, ready: true, restarts: 0, node: ip-10-0-1-32, version: sha-11aa22 }
