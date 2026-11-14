@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.7
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir --prefix=/install ".[llm,mcp,k8s]"
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     SRE_AGENT_READ_ONLY=true SRE_AGENT_AUDIT_PATH=/var/lib/sre-agent/audit.jsonl
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin agent \
